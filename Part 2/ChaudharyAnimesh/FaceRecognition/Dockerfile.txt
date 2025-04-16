@@ -1,0 +1,45 @@
+# FROM public.ecr.aws/lambda/python:3.8
+
+# # Install FFmpeg
+# RUN yum install -y tar xz && \
+#     curl -L -o ffmpeg-release-amd64-static.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz && \
+#     mkdir -p /ffmpeg_temp && \
+#     tar -xJf ffmpeg-release-amd64-static.tar.xz -C /ffmpeg_temp && \
+#     mv $(find /ffmpeg_temp -name 'ffmpeg') /usr/local/bin/ && \
+#     chmod +x /usr/local/bin/ffmpeg && \
+#     rm -rf ffmpeg-release-amd64-static.tar.xz /ffmpeg_temp
+
+# # Copy the requirements file first for caching dependencies
+# COPY requirements.txt ${LAMBDA_TASK_ROOT}
+
+# # Install Python dependencies
+# RUN pip3 install -r ${LAMBDA_TASK_ROOT}/requirements.txt --target "${LAMBDA_TASK_ROOT}"
+
+# # Copy the application code
+# COPY handler.py ${LAMBDA_TASK_ROOT}
+# COPY face_recognition_code.py ${LAMBDA_TASK_ROOT}
+
+# # Set the CMD to the handler
+# CMD [ "handler.handler" ]
+FROM public.ecr.aws/lambda/python:3.8
+
+# Install system dependencies
+RUN yum install -y python3-devel gcc
+
+# Copy requirements first for better caching
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
+
+# Install Python dependencies with optimizations
+RUN pip3 install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt --target "${LAMBDA_TASK_ROOT}" \
+    && find "${LAMBDA_TASK_ROOT}" -name "*.pyc" -delete \
+    && find "${LAMBDA_TASK_ROOT}" -name "__pycache__" -exec rm -rf {} +
+
+# Copy the handler code
+COPY handler.py ${LAMBDA_TASK_ROOT}
+
+# Set environment variables for optimization
+ENV PYTHONPATH="/var/task"
+ENV TORCH_HOME="/tmp"
+
+# Set the CMD to the handler
+CMD [ "handler.handler" ]
